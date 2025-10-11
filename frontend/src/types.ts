@@ -1,6 +1,7 @@
 export interface Image {
   base64?: string;
   description?: string;
+  subtennatilityScore?: number;
 }
 
 export interface backendPostResponse {

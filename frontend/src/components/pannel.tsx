@@ -10,6 +10,10 @@ import { Headline } from '@/components/headline';
 import { backendPost } from '@/libs/backendPost';
 import { Input } from '@/components/ui/input';
 
+const subtennatilityScore =() =>  {
+  return Math.floor(Math.random() * 100);
+};
+
 export const Pannel = () => {
   const { addMessages, addImagesStored } = useConversationStore();
   const { text, setText, images } = useInputStore();
@@ -41,7 +45,10 @@ export const Pannel = () => {
         },
       ]);
       if (response.images.length > 0) {
-        addImagesStored(response.images);
+        addImagesStored(response.images.map((image) => ({
+          ...image,
+          subtennatilityScore: subtennatilityScore(),
+        })));
       }
       setText('');
       setIsLoading(false);

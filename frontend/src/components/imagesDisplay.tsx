@@ -7,9 +7,7 @@ const HEIGHT = 180;
 export const defaultImage =
   'https://static.wikia.nocookie.net/virtualyoutuber/images/e/e5/Gremlin_Chibidoki_PNG.png/revision/latest?cb=20250311221031';
 
-const subtennatilityScore =() =>  {
-  return Math.floor(Math.random() * 100);
-};
+
 
 export const ImagesDisplay = () => {
   const { imagesStored } = useConversationStore();
@@ -40,7 +38,7 @@ export const ImagesDisplay = () => {
             >
             buy it
           </Button>
-          <p>Subtennatility Score: {subtennatilityScore()} / 100</p>
+          <p>Subtennatility Score: {image.subtennatilityScore} / 100</p>
           </div>
         </div>
       ))}
