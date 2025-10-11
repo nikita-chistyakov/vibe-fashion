@@ -40,28 +40,35 @@ def call_ollama(
     system_prompt: str = None,
     history: list = None,
     model: str = "gemma3:12b",
+    base64_image: str = None,       # ✅ NEW
     stream: bool = False,
+    json_mode: bool = False,        # ✅ NEW
 ) -> str:
-    """Simple function to call Ollama API with flexible message handling"""
+    """
+    Calls an Ollama model (multimodal & JSON-safe).
+    Supports system + user prompts, chat history, and optional image input.
+    """
+
     try:
         url = "https://ollama-gemma3-4b-153939933605.europe-west1.run.app/api/chat"
 
-        # Build messages array
         messages = []
 
-        # Add system prompt if provided
         if system_prompt:
             messages.append({"role": "system", "content": system_prompt})
 
-        # Add history if provided
         if history:
             messages.extend(history)
 
-        # Add user prompt if provided
         if user_prompt:
-            messages.append({"role": "user", "content": user_prompt})
+            user_message = {"role": "user", "content": user_prompt}
 
-        # If no messages, return error
+            # ✅ Attach multimodal image correctly
+            if base64_image:
+                user_message["images"] = [base64_image]
+
+            messages.append(user_message)
+
         if not messages:
             return "Error: No messages provided"
 
@@ -71,29 +78,12 @@ def call_ollama(
             "stream": stream,
         }
 
-        response = requests.post(url, json=payload, timeout=60)
+        # ✅ Enforce strict JSON output if supported
+        if json_mode:
+            payload["format"] = "json"
+
+        response = requests.post(url, json=payload, timeout=90)
         response.raise_for_status()
-
-        if stream:
-            # Handle streaming response
-            result = ""
-            for line in response.iter_lines():
-                if line:
-                    try:
-                        data = json.loads(line.decode("utf-8"))
-                        if "message" in data and "content" in data["message"]:
-                            result += data["message"]["content"]
-                    except json.JSONDecodeError:
-                        continue
-            return result
-        else:
-            # Handle non-streaming response
-            data = response.json()
-            return data.get("message", {}).get("content", "")
-
-    except Exception as e:
-        print(f"Error calling Ollama: {str(e)}")
-        return f"Error: {str(e)}"
 
 
 def generate_image(base64_image: str, prompt: str) -> str:
@@ -168,13 +158,16 @@ class FashionWorkflow:
             intent_prompt = f"""Analyze the user's request and classify their intent.
 
             User Input: {user_input}
-            Image Data: {base64_image}
+            Image Provided: Yes
             
             Classify the user's intent and respond with ONLY one of these:
             - "FASHION_REQUEST": User wants outfit suggestions with generated images
             - "OUT_OF_TOPIC": User's request is not related to outfit generation or is unclear"""
 
-            intent_response = call_ollama(user_prompt=intent_prompt)
+            intent_response = call_ollama(
+                user_prompt=intent_prompt,
+                base64_image=base64_image,   # ✅ Send the image for context
+                )
             intent_classification = str(intent_response).strip().upper()
             logger.info(f"Intent Classification: {intent_classification}")
 
@@ -207,7 +200,10 @@ class FashionWorkflow:
                 }}
                 """
 
-                generation_response = call_ollama(user_prompt=generation_prompt)
+                generation_response = call_ollama(
+                    user_prompt=generation_prompt,
+                    json_mode=True,              # ✅ Force strict JSON output
+                )
                 logger.info(f"Outfit Generation Raw Response: {generation_response}")
 
                 try:

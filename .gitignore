@@ -28,8 +28,8 @@ MANIFEST
 .venv/
 venv/
 #ENV/
-#env/
-#.env
+env/
+.env
 
 # IDE files
 .vscode/
