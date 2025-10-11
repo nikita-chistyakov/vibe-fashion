@@ -106,7 +106,7 @@ def generate_image(base64_image: str, prompt: str) -> str:
     """
 
     API_KEY = os.getenv("GOOGLE_API")
-
+    API_KEY = "AIzaSyAbCwlgnvy5_qcbORvB5sQbOawpEukk6Co"
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key={API_KEY}"
 
     payload = {
@@ -248,8 +248,40 @@ class FashionWorkflow:
 
                 print(f"🎉 Complete! Generated {len(generated_images)} images")
                 # Step 3c: Return results
+                # another call to generate combinatining the prompts descriptions , a readable description of the image
+
+                print("🧵 Creating combined outfit description...")
+
+                try:
+                    system_prompt = (
+                        "You are a professional fashion stylist and copywriter. "
+                        "You write vivid, elegant, and concise outfit descriptions for clients. "
+                        "Focus on tone, mood, and visual coherence — not just listing items."
+                    )
+
+                    user_prompt = f"""
+                    These outfit ideas were generated for the user:
+                    {json.dumps(outfit_prompts, indent=2)}
+
+                    Write a short paragraph (3–5 sentences) that smoothly describes these outfits
+                    as if summarizing them for a fashion magazine feature. 
+                    Avoid JSON, lists, or code blocks — produce only natural language text.
+                    """
+
+                    summary_output = call_ollama(
+                        system_prompt=system_prompt,
+                        user_prompt=user_prompt,
+                        model="gemma3:12b",
+                    )
+                    print("🧶 Combined description generated successfully.")
+
+                except Exception as e:
+                    print(f"⚠️ Failed to generate combined description: {e}")
+                    summary_output = "No readable description available."
+
+                # ✅ Return the summary as 'suggestions'
                 return {
-                    "suggestions": outfit_prompts,
+                    "suggestions": summary_output,  # now contains the natural-language paragraph
                     "success": True,
                     "intent_classification": intent_classification,
                     "generated_images": generated_images,
