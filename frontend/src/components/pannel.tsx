@@ -18,12 +18,21 @@ export const Pannel = () => {
   const handleSend = useCallback(
     async (e: React.FormEvent<HTMLFormElement>) => {
       e.preventDefault();
-      if (text.trim().length === 0 || images.length === 0) {
+      if (text.trim().length === 0 || images.length === 0 || !images[0]) {
         return;
       }
       setIsLoading(true);
       addMessages([{ role: Roles.USER, content: text }]);
       const response = await backendPost({ text, imageBase64: images[0] });
+      if (!response.success) {
+        addMessages([
+          {
+            role: Roles.ASSISTANT,
+            content: response.error_message ?? 'No response from server',
+          },
+        ]);
+        return;
+      }
       addMessages([
         {
           role: Roles.ASSISTANT,

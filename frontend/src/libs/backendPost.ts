@@ -9,12 +9,12 @@ interface backendPostProps {
 
 export const backendPost = async ({ text, imageBase64 }: backendPostProps) => {
   try {
-    const response = await fetch(`${base}/api/chat`, {
+    const response = await fetch(`${base}/fashion-workflow`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ text, image: imageBase64 }),
+      body: JSON.stringify({ user_input: text, base64_image: imageBase64 }),
     });
     if (!response.ok) {
       throw new Error('Failed to fetch');
@@ -22,6 +22,11 @@ export const backendPost = async ({ text, imageBase64 }: backendPostProps) => {
     return response.json() as Promise<backendPostResponse>;
   } catch (error) {
     console.log('error', error);
-    return { text: 'Error from server', images: [] };
+    return {
+      text: 'Error from server',
+      images: [],
+      success: false,
+      error_message: 'Error from server',
+    };
   }
 };
