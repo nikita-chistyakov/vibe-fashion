@@ -31,9 +31,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Load environment variables
-root_dir = Path(__file__).parent.parent.parent
-dotenv_path = root_dir / ".env"
-load_dotenv(dotenv_path=dotenv_path)
+load_dotenv()
 
 
 def call_ollama(
@@ -106,8 +104,7 @@ def generate_image(base64_image: str, prompt: str) -> str:
         Base64-encoded PNG data (string)
     """
     print(f"Generating image for prompt: {prompt}")
-    API_KEY = "AIzaSyAbCwlgnvy5_qcbORvB5sQbOawpEukk6Co"
-    print(f"API_KEY: {API_KEY}")
+    API_KEY = os.getenv("GOOGLE_API")
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key={API_KEY}"
 
     payload = {
@@ -297,7 +294,7 @@ class FashionWorkflow:
                         line.strip()
                         for line in generation_response.split("\n")
                         if line.strip()
-                    ][:2]
+                    ][:4]
 
                 # Step 3b: Generate images using Gemini image model concurrently
                 print("🎨 Generating images...")

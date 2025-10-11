@@ -46,7 +46,12 @@ venv/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Ignore Python bytecode
 services/backend/__pycache__/*
+
+# Ignore saved_images folder and all its contents (recursive)
+services/backend/core/testing_nb/saved_images/
 
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
