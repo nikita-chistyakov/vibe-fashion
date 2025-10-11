@@ -1,19 +1,45 @@
+# Use Python 3.11 slim image for smaller size
 FROM python:3.11-slim
 
 # Set working directory
 WORKDIR /app
 
-# Copy backend service code
-COPY backend /app
+# Install system dependencies including curl for health checks
+RUN apt-get update && apt-get install -y \
+    gcc \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
 
-# Install uv (preferred over pip)
-RUN pip install uv
+# Install uv for fast dependency management
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 
-# Expose port (FastAPI default)
+# Copy dependency files
+COPY pyproject.toml uv.lock ./
+
+# Install dependencies with uv (use --no-dev for production)
+RUN uv sync --frozen --no-cache --no-dev
+
+# Copy application code
+COPY . .
+
+# Create non-root user for security
+RUN useradd --create-home --shell /bin/bash app \
+    && chown -R app:app /app
+USER app
+
+# Set environment variables for production
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV API_HOST=0.0.0.0
+ENV GOOGLE_API=${GOOGLE_API}
+ENV DEBUG=False
+
+# Expose port (will be overridden by cloud platforms)
 EXPOSE 8000
 
-# Set environment variables if any (placeholder, can be adjusted)
-ENV PYTHONUNBUFFERED=1
+# Health check using the root endpoint
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD curl -f http://localhost:${PORT:-8000}/ || exit 1
 
-# Start the FastAPI application using uv
-CMD ["sh", "-c", "uv sync && uv run python main.py"]
+# Start the application
+CMD ["uv", "run", "python", "main.py"]
