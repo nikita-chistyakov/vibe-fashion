@@ -64,7 +64,7 @@ export const Pannel = () => {
             disabled={isLoading}
           />
           <Button variant="outline" type="submit" disabled={isLoading}>
-            Send
+            {isLoading ? 'Sending...' : 'Send'}
           </Button>
         </form>
       </div>

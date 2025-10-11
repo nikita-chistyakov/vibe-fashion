@@ -187,7 +187,13 @@ class FashionWorkflow:
 
             if intent_classification == "OUT_OF_TOPIC":
                 print("❌ Out of topic - returning redirect message")
-                out_of_topic_response = f""" OUT OF TOPIC: I specialize in providing outfit suggestions with generated visual examples."""
+                out_of_topic_response = call_ollama(
+                user_prompt=f"""
+                You are a fashion assistant, the user ask something that is not related to outfit generation or is unclear
+                ask for some clarification and say that you are only here to help with outfit generation.
+                User input: {user_input}
+                """,
+                )   
                 return {
                     "suggestions": out_of_topic_response,
                     "success": True,
