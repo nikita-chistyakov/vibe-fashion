@@ -80,7 +80,7 @@ def call_ollama(
         response = requests.post(url, json=payload, timeout=90)
         response.raise_for_status()
 
-        # ✅ Return the actual content
+        # Return the actual content
         data = response.json()
         if "message" in data and "content" in data["message"]:
             return data["message"]["content"]
@@ -100,8 +100,12 @@ def generate_image(base64_image: str, prompt: str) -> str:
         base64_image: Base64-encoded image data (string)
         prompt: Text instruction describing how to modify the image
 
-    Output:
-        Base64-encoded PNG data (string)
+    Args:
+        base64_image: Base64-encoded image data
+        prompt: Text describing how to modify the image
+
+    Returns:
+        Base64-encoded PNG data
     """
     print(f"Generating image for prompt: {prompt}")
     API_KEY = os.getenv("GOOGLE_API")
@@ -161,7 +165,7 @@ def generate_image(base64_image: str, prompt: str) -> str:
 
 
 class FashionWorkflow:
-    """Enhanced fashion workflow with intent classification and conditional outfit generation"""
+    """Fashion workflow that classifies user intent and generates outfit suggestions"""
 
     def __init__(self):
         pass
@@ -170,13 +174,13 @@ class FashionWorkflow:
         self, base64_image: str, user_input: str
     ) -> Dict[str, Any]:
         """Process fashion request with intent classification and conditional outfit generation"""
-        print(f"🔄 Processing request: {user_input[:50]}...")
+        print(f"Processing request: {user_input[:50]}...")
 
         try:
             # Step 1: Intent Classification
-            print("📋 Classifying intent...")
+            print("Classifying intent...")
             intent_prompt = f"""
-            TASK: Classify the user's request for a fashion outfit generator.
+            Figure out what the user is asking for.
 
             Return EXACTLY one label on a single line with no punctuation or quotes:
             FASHION_REQUEST or OUT_OF_TOPIC
@@ -204,13 +208,13 @@ class FashionWorkflow:
 
             intent_response = call_ollama(
                 user_prompt=intent_prompt,
-                base64_image=base64_image,  # ✅ Send the image for context
+                base64_image=base64_image,  # Send the image for context
             )
             intent_classification = str(intent_response).strip().upper()
-            print(f"✅ Intent: {intent_classification}")
+            print(f"Intent: {intent_classification}")
 
             if intent_classification == "OUT_OF_TOPIC":
-                print("❌ Out of topic - returning redirect message")
+                print("Out of topic - returning redirect message")
                 out_of_topic_response = call_ollama(
                     user_prompt=f"""
                 You are a fashion assistant, the user ask something that is not related to outfit generation or is unclear
@@ -225,12 +229,12 @@ class FashionWorkflow:
                     "generated_images": [],
                 }
             if intent_classification == "FASHION_REQUEST":
-                print("👗 Fashion request - generating outfits...")
+                print("Fashion request - generating outfits...")
                 # call gemma model to generate a set of prompt ( for example 2 )
                 # we will call the image_generator tool twice to generate 2 images
                 # we will return the images and the prompts
                 # Step 3a: Generate two outfit prompts using Gemma
-                print("💭 Generating outfit prompts...")
+                print("Generating outfit prompts...")
                 generation_prompt = f"""
                 You are generating two outfit-edit prompts for an image editor.
 
@@ -281,9 +285,9 @@ class FashionWorkflow:
 
                 generation_response = call_ollama(
                     user_prompt=generation_prompt,
-                    json_mode=True,  # ✅ Force strict JSON output
+                    json_mode=True,  # Force strict JSON output
                 )
-                print("📝 Generated prompts")
+                print("Generated prompts")
 
                 try:
                     outfit_data = json.loads(generation_response)
@@ -297,7 +301,7 @@ class FashionWorkflow:
                     ][:4]
 
                 # Step 3b: Generate images using Gemini image model concurrently
-                print("🎨 Generating images...")
+                print("Generating images...")
                 generated_images = []
 
                 # Use ThreadPoolExecutor for concurrent image generation
@@ -314,24 +318,24 @@ class FashionWorkflow:
                     # Collect results as they complete
                     for future in concurrent.futures.as_completed(future_to_prompt):
                         i, prompt = future_to_prompt[future]
-                        print(f"  📸 Image {i}/4...")
+                        print(f"  Image {i}/4...")
                         try:
                             img_b64 = future.result()
                             if img_b64:
                                 generated_images.append(
                                     {"prompt": prompt, "image_base64": img_b64}
                                 )
-                                print(f"  ✅ Image {i} generated")
+                                print(f"  Image {i} generated")
                             else:
-                                print(f"  ❌ Image {i} failed")
+                                print(f"  Image {i} failed")
                         except Exception as e:
-                            print(f"  ❌ Image {i} failed with error: {e}")
+                            print(f"  Image {i} failed with error: {e}")
 
-                print(f"🎉 Complete! Generated {len(generated_images)} images")
+                print(f"Complete! Generated {len(generated_images)} images")
                 # Step 3c: Return results
                 # another call to generate combinatining the prompts descriptions , a readable description of the image
 
-                print("🧵 Creating combined outfit description...")
+                print("Creating combined outfit description...")
 
                 try:
                     system_prompt = (
@@ -354,13 +358,13 @@ class FashionWorkflow:
                         user_prompt=user_prompt,
                         model="gemma3:12b",
                     )
-                    print("🧶 Combined description generated successfully.")
+                    print("Combined description generated successfully.")
 
                 except Exception as e:
-                    print(f"⚠️ Failed to generate combined description: {e}")
+                    print(f"Failed to generate combined description: {e}")
                     summary_output = "No readable description available."
 
-                # ✅ Return the summary as 'suggestions'
+                # Return the summary as 'suggestions'
                 return {
                     "suggestions": summary_output,  # now contains the natural-language paragraph
                     "success": True,
@@ -378,7 +382,7 @@ class FashionWorkflow:
                 }
 
         except Exception as e:
-            print(f"❌ Error: {str(e)}")
+            print(f"Error: {str(e)}")
             return {
                 "suggestions": "I'm sorry, I encountered an error analyzing your request. Please try again.",
                 "success": False,
