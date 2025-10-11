@@ -10,8 +10,8 @@ import { Headline } from '@/components/headline';
 import { backendPost } from '@/libs/backendPost';
 import { Input } from '@/components/ui/input';
 
-const subtennatilityScore =() =>  {
-  return Math.floor(Math.random() * 100);
+const subtennatilityScore = () => {
+  return Math.floor(Math.random() * 51) + 50;
 };
 
 export const Pannel = () => {
@@ -45,10 +45,12 @@ export const Pannel = () => {
         },
       ]);
       if (response.images.length > 0) {
-        addImagesStored(response.images.map((image) => ({
-          ...image,
-          subtennatilityScore: subtennatilityScore(),
-        })));
+        addImagesStored(
+          response.images.map((image) => ({
+            ...image,
+            subtennatilityScore: subtennatilityScore(),
+          })),
+        );
       }
       setText('');
       setIsLoading(false);
