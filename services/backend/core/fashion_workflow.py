@@ -18,6 +18,7 @@ import binascii
 import json
 import requests
 import logging
+import concurrent.futures
 from pathlib import Path
 from typing import Dict, Any
 
@@ -115,12 +116,20 @@ def generate_image(base64_image: str, prompt: str) -> str:
                 "role": "model",
                 "parts": [
                     {
-                        "text": """You are a precise image-editing assistant. 
-        Edit the image by keeping the principal personnage of the image,
-        Keep the feature of the personnage of the image,
-        Output only base64 PNG data, no text, no explanations.
-        Take the entry of the base64 image I will give you, do not modify the core of the image,
-        do not modify anything unless explicitly stated in the user_prompt I will give you."""
+                        "text": """You are a precise image-editing assistant.
+
+                        GOAL
+                        - Edit ONLY the clothing on the person in the provided image per the user's instruction.
+                        - Preserve identity: do not change face, skin tone, hair, body shape, age, pose, lighting, or background.
+
+                        OUTPUT
+                        - Return a base64-encoded PNG ONLY (no JSON, no text, no markdown, no prefix/suffix).
+
+                        CONSTRAINTS
+                        - Do not add text, logos, watermarks, or brand marks.
+                        - Do not sexualize or remove garments.
+                        - If instruction conflicts with identity preservation, favor preservation and still return the best clothing-only edit.
+                        """
                     }
                 ],
             },
@@ -169,14 +178,32 @@ class FashionWorkflow:
         try:
             # Step 1: Intent Classification
             print("📋 Classifying intent...")
-            intent_prompt = f"""Analyze the user's request and classify their intent.
+            intent_prompt = f"""
+            TASK: Classify the user's request for a fashion outfit generator.
 
-            User Input: {user_input}
-            Image Provided: Yes
-            
-            Classify the user's intent and respond with ONLY one of these:
-            - "FASHION_REQUEST": User wants outfit suggestions with generated images
-            - "OUT_OF_TOPIC": User's request is not related to outfit generation or is unclear"""
+            Return EXACTLY one label on a single line with no punctuation or quotes:
+            FASHION_REQUEST or OUT_OF_TOPIC
+
+            Guidelines:
+            - FASHION_REQUEST = outfits, clothing styling, wardrobe advice, or garment changes to the person in the image.
+            - OUT_OF_TOPIC = makeup/hair/face/body edits, background-only edits, or unrelated/unclear text.
+            - If uncertain, choose OUT_OF_TOPIC.
+
+            Image provided: YES
+
+            Few-shot examples:
+            Q: "Make two streetwear looks I could wear with this pic"
+            A: FASHION_REQUEST
+            Q: "Can you whiten my teeth?"
+            A: OUT_OF_TOPIC
+            Q: "Put me on a beach"
+            A: OUT_OF_TOPIC
+            Q: "Suggest smart-casual outfits for the office"
+            A: FASHION_REQUEST
+
+            User input:
+            <<<{user_input}>>>
+            """
 
             intent_response = call_ollama(
                 user_prompt=intent_prompt,
@@ -188,12 +215,12 @@ class FashionWorkflow:
             if intent_classification == "OUT_OF_TOPIC":
                 print("❌ Out of topic - returning redirect message")
                 out_of_topic_response = call_ollama(
-                user_prompt=f"""
+                    user_prompt=f"""
                 You are a fashion assistant, the user ask something that is not related to outfit generation or is unclear
                 ask for some clarification and say that you are only here to help with outfit generation.
                 User input: {user_input}
                 """,
-                )   
+                )
                 return {
                     "suggestions": out_of_topic_response,
                     "success": True,
@@ -208,19 +235,51 @@ class FashionWorkflow:
                 # Step 3a: Generate two outfit prompts using Gemma
                 print("💭 Generating outfit prompts...")
                 generation_prompt = f"""
-                The user provided this fashion-related request:
-                "{user_input}"
+                You are generating two outfit-edit prompts for an image editor.
 
-                Analyze the user's preferences and generate 2 diverse, creative outfit ideas.
-                Each idea should be a one-sentence visual description that can be used as an image-generation prompt.
-                
-                Example output format (strictly JSON):
+                REQUIRED OUTPUT FORMAT (exactly this shape):
                 {{
-                    "outfits": [
-                        "Prompt 1: A modern casual outfit with a denim jacket and white sneakers.",
-                        "Prompt 2: A chic summer dress with floral prints and sun hat."
-                    ]
+                "outfits": [
+                    "string",
+                    "string",
+                    "string",
+                    "string"
+                ]
                 }}
+
+                Rules:
+                - Return VALID JSON only. No markdown, no comments, no extra keys, no trailing commas.
+                - The "outfits" array must contain EXACTLY 4 strings.
+
+                CONTENT RULES FOR EACH STRING:
+                - Start with: "Replace current clothing with ..."
+                - ≤ 60 words.
+                - Mention silhouette, a 3–5 color palette, main garments, fabric/texture, footwear, and 1–2 accessories.
+                - Include this clause verbatim: "keep body, face, hair, skin tone, pose, lighting, and background unchanged."
+                - No brand names, no text overlays, no camera/aspect settings.
+                - If the user gives no setting, assume a neutral studio background.
+                - Write in the same language as the User Input.
+
+                FEW-SHOT EXAMPLES (follow these patterns exactly):
+
+                Example 1:
+                {{
+                "outfits": [
+                    "Replace current clothing with a sleek streetwear look — oversized black hoodie, gray joggers, and chunky white sneakers; add a silver chain. keep body, face, hair, skin tone, pose, lighting, and background unchanged.",
+                    "Replace current clothing with a modern minimalist outfit — white cropped shirt, high-waisted beige trousers, and brown loafers with a thin leather belt; subtle gold jewelry. keep body, face, hair, skin tone, pose, lighting, and background unchanged."
+                ]
+                }}
+
+                Example 2:
+                {{
+                "outfits": [
+                    "Replace current clothing with a relaxed summer outfit — light blue linen shirt, white shorts, tan sandals, and a woven bracelet; breezy, casual vibe. keep body, face, hair, skin tone, pose, lighting, and background unchanged.",
+                    "Replace current clothing with an elegant evening style — satin black dress, silver heels, and minimalist pearl earrings; add soft fabric sheen. keep body, face, hair, skin tone, pose, lighting, and background unchanged."
+                ]
+                }}
+
+                User Input:
+                \"\"\"{user_input}\"\"\"
                 """
 
                 generation_response = call_ollama(
@@ -240,19 +299,36 @@ class FashionWorkflow:
                         if line.strip()
                     ][:2]
 
-                # Step 3b: Generate images using Gemini image model
+                # Step 3b: Generate images using Gemini image model concurrently
                 print("🎨 Generating images...")
                 generated_images = []
-                for i, prompt in enumerate(outfit_prompts[:2], 1):
-                    print(f"  📸 Image {i}/2...")
-                    img_b64 = generate_image(base64_image, prompt)
-                    if img_b64:
-                        generated_images.append(
-                            {"prompt": prompt, "image_base64": img_b64}
+
+                # Use ThreadPoolExecutor for concurrent image generation
+                with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+                    # Submit image generation tasks
+                    future_to_prompt = {
+                        executor.submit(generate_image, base64_image, prompt): (
+                            i,
+                            prompt,
                         )
-                        print(f"  ✅ Image {i} generated")
-                    else:
-                        print(f"  ❌ Image {i} failed")
+                        for i, prompt in enumerate(outfit_prompts[:4], 1)
+                    }
+
+                    # Collect results as they complete
+                    for future in concurrent.futures.as_completed(future_to_prompt):
+                        i, prompt = future_to_prompt[future]
+                        print(f"  📸 Image {i}/4...")
+                        try:
+                            img_b64 = future.result()
+                            if img_b64:
+                                generated_images.append(
+                                    {"prompt": prompt, "image_base64": img_b64}
+                                )
+                                print(f"  ✅ Image {i} generated")
+                            else:
+                                print(f"  ❌ Image {i} failed")
+                        except Exception as e:
+                            print(f"  ❌ Image {i} failed with error: {e}")
 
                 print(f"🎉 Complete! Generated {len(generated_images)} images")
                 # Step 3c: Return results
