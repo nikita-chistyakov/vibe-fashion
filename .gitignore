@@ -1,6 +1,7 @@
 # Data folder
 /data
 
+
 # Python cache files
 __pycache__/
 *.py[cod]
@@ -29,7 +30,11 @@ MANIFEST
 venv/
 #ENV/
 #env/
-#.env
+
+# Environment files
+.env
+.env.*
+!.env.example
 
 # IDE files
 .vscode/
