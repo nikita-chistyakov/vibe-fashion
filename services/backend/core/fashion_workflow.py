@@ -40,9 +40,9 @@ def call_ollama(
     system_prompt: str = None,
     history: list = None,
     model: str = "gemma3:12b",
-    base64_image: str = None,       # ✅ NEW
+    base64_image: str = None,
     stream: bool = False,
-    json_mode: bool = False,        # ✅ NEW
+    json_mode: bool = False,
 ) -> str:
     """
     Calls an Ollama model (multimodal & JSON-safe).
@@ -62,11 +62,8 @@ def call_ollama(
 
         if user_prompt:
             user_message = {"role": "user", "content": user_prompt}
-
-            # ✅ Attach multimodal image correctly
             if base64_image:
                 user_message["images"] = [base64_image]
-
             messages.append(user_message)
 
         if not messages:
@@ -78,12 +75,24 @@ def call_ollama(
             "stream": stream,
         }
 
-        # ✅ Enforce strict JSON output if supported
         if json_mode:
             payload["format"] = "json"
 
         response = requests.post(url, json=payload, timeout=90)
         response.raise_for_status()
+
+        # ✅ Return the actual content
+        data = response.json()
+        if "message" in data and "content" in data["message"]:
+            return data["message"]["content"]
+        elif "content" in data:
+            return data["content"]
+        else:
+            return json.dumps(data)
+
+    except Exception as e:
+        logger.error(f"Ollama call failed: {e}")
+        return f"Error: {str(e)}"
 
 
 def generate_image(base64_image: str, prompt: str) -> str:
@@ -153,8 +162,11 @@ class FashionWorkflow:
         self, base64_image: str, user_input: str
     ) -> Dict[str, Any]:
         """Process fashion request with intent classification and conditional outfit generation"""
+        print(f"🔄 Processing request: {user_input[:50]}...")
+
         try:
             # Step 1: Intent Classification
+            print("📋 Classifying intent...")
             intent_prompt = f"""Analyze the user's request and classify their intent.
 
             User Input: {user_input}
@@ -166,12 +178,13 @@ class FashionWorkflow:
 
             intent_response = call_ollama(
                 user_prompt=intent_prompt,
-                base64_image=base64_image,   # ✅ Send the image for context
-                )
+                base64_image=base64_image,  # ✅ Send the image for context
+            )
             intent_classification = str(intent_response).strip().upper()
-            logger.info(f"Intent Classification: {intent_classification}")
+            print(f"✅ Intent: {intent_classification}")
 
             if intent_classification == "OUT_OF_TOPIC":
+                print("❌ Out of topic - returning redirect message")
                 out_of_topic_response = f""" OUT OF TOPIC: I specialize in providing outfit suggestions with generated visual examples."""
                 return {
                     "suggestions": out_of_topic_response,
@@ -180,10 +193,12 @@ class FashionWorkflow:
                     "generated_images": [],
                 }
             if intent_classification == "FASHION_REQUEST":
+                print("👗 Fashion request - generating outfits...")
                 # call gemma model to generate a set of prompt ( for example 2 )
                 # we will call the image_generator tool twice to generate 2 images
                 # we will return the images and the prompts
                 # Step 3a: Generate two outfit prompts using Gemma
+                print("💭 Generating outfit prompts...")
                 generation_prompt = f"""
                 The user provided this fashion-related request:
                 "{user_input}"
@@ -202,9 +217,9 @@ class FashionWorkflow:
 
                 generation_response = call_ollama(
                     user_prompt=generation_prompt,
-                    json_mode=True,              # ✅ Force strict JSON output
+                    json_mode=True,  # ✅ Force strict JSON output
                 )
-                logger.info(f"Outfit Generation Raw Response: {generation_response}")
+                print("📝 Generated prompts")
 
                 try:
                     outfit_data = json.loads(generation_response)
@@ -218,15 +233,20 @@ class FashionWorkflow:
                     ][:2]
 
                 # Step 3b: Generate images using Gemini image model
+                print("🎨 Generating images...")
                 generated_images = []
-                for prompt in outfit_prompts[:2]:
-                    logger.info(f"Generating image for prompt: {prompt}")
+                for i, prompt in enumerate(outfit_prompts[:2], 1):
+                    print(f"  📸 Image {i}/2...")
                     img_b64 = generate_image(base64_image, prompt)
                     if img_b64:
                         generated_images.append(
                             {"prompt": prompt, "image_base64": img_b64}
                         )
+                        print(f"  ✅ Image {i} generated")
+                    else:
+                        print(f"  ❌ Image {i} failed")
 
+                print(f"🎉 Complete! Generated {len(generated_images)} images")
                 # Step 3c: Return results
                 return {
                     "suggestions": outfit_prompts,
@@ -245,7 +265,7 @@ class FashionWorkflow:
                 }
 
         except Exception as e:
-            print(f"Error processing fashion request: {str(e)}")
+            print(f"❌ Error: {str(e)}")
             return {
                 "suggestions": "I'm sorry, I encountered an error analyzing your request. Please try again.",
                 "success": False,
