@@ -1,12 +1,32 @@
-from fastapi import FastAPI, File, UploadFile, Form, HTTPException
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 import uvicorn
+import base64
 
-from models import ChatResponse, ImageResponse
-from core.fashion_agent import fashion_agent
-from image_utils import process_uploaded_image, validate_image_format
+from models import FashionResponse
+from core.fashion_workflow import fashion_workflow
+
+
+# Request model for fashion workflow
+class FashionWorkflowRequest(BaseModel):
+    """Request model for fashion workflow"""
+
+    base64_image: str
+    user_input: str
+
 
 # Create FastAPI app
 app = FastAPI()
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allows all origins
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all methods
+    allow_headers=["*"],  # Allows all headers
+)
 
 
 @app.get("/")
@@ -15,57 +35,56 @@ async def root():
     return {"message": "Vibe Fashion API is running!", "status": "healthy"}
 
 
-@app.post("/chat", response_model=ChatResponse)
-async def chat(
-    text: str = Form(..., description="User's text message"),
-    image: UploadFile = File(..., description="Image file"),
-):
+@app.post("/fashion-workflow", response_model=FashionResponse)
+async def fashion_workflow_endpoint(request: FashionWorkflowRequest):
     """
-    Simple chat endpoint that requires both text and image input
+    Run the complete fashion workflow with image analysis and outfit generation
 
     Args:
-        text: User's text message
-        image: Required image file
+        request: FashionWorkflowRequest containing base64 image and user input
 
     Returns:
-        ChatResponse with AI response text and base64 images
+        FashionWorkflowResponse with textual suggestions and 4 generated outfit images
     """
     try:
-        # Validate image format
-        image_content = await image.read()
-        if not validate_image_format(image_content):
+        # Validate base64 image
+        try:
+            # Try to decode the base64 to validate it
+            base64.b64decode(request.base64_image)
+        except Exception:
             raise HTTPException(
                 status_code=400,
-                detail="Invalid image format. Please upload a valid image file.",
+                detail="Invalid base64 image format. Please provide a valid base64 encoded image.",
             )
 
-        # Process the image
-        processed_image = process_uploaded_image(image_content)
-        if not processed_image:
-            raise HTTPException(
-                status_code=400, detail="Failed to process the uploaded image."
+        # Run the fashion workflow
+        result = await fashion_workflow.process_request(
+            request.base64_image, request.user_input
+        )
+
+        # Convert generated images to the expected format
+        images = []
+        for img_data in result.get("generated_images", []):
+            images.append(
+                {
+                    "base64": img_data.get("base64", ""),
+                    "description": img_data.get(
+                        "description", "Generated outfit image"
+                    ),
+                }
             )
 
-        # Get response from the fashion agent
-        response = await fashion_agent.process_chat(text, processed_image)
-
-        # Convert images to the expected format
-        images = [
-            ImageResponse(base64=img["base64"], description=img["description"])
-            for img in response["images"]
-        ]
-
-        return ChatResponse(
-            text=response["text"],
+        return FashionResponse(
+            text=result["suggestions"],
             images=images,
-            success=response["success"],
-            error_message=response.get("error"),
+            success=result["success"],
+            error_message=result.get("error"),
         )
 
     except HTTPException:
         raise
     except Exception as e:
-        return ChatResponse(
+        return FashionResponse(
             text="I'm sorry, I encountered an error processing your request.",
             images=[],
             success=False,

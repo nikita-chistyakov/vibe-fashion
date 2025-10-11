@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import Optional, List
 
 
 class ImageResponse(BaseModel):
@@ -9,8 +9,8 @@ class ImageResponse(BaseModel):
     description: str
 
 
-class ChatResponse(BaseModel):
-    """Response model for chat endpoint"""
+class FashionResponse(BaseModel):
+    """Response model for fashion endpoint"""
 
     text: str
     images: List[ImageResponse]

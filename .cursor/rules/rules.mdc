@@ -1,0 +1,5 @@
+---
+alwaysApply: true
+---
+don't make test if not asked explicitly
+we are using uv environment so prioritize uv add when adding new libraries
