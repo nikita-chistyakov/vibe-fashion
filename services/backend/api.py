@@ -67,7 +67,7 @@ async def fashion_workflow_endpoint(request: FashionWorkflowRequest):
         for img_data in result.get("generated_images", []):
             images.append(
                 {
-                    "base64": img_data.get("base64", ""),
+                    "base64": img_data.get("image_base64", ""),
                     "description": img_data.get(
                         "description", "Generated outfit image"
                     ),

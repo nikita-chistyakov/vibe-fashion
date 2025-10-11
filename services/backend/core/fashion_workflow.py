@@ -104,18 +104,19 @@ def generate_image(base64_image: str, prompt: str) -> str:
     Output:
         Base64-encoded PNG data (string)
     """
-
-    API_KEY = os.getenv("GOOGLE_API")
+    print(f"Generating image for prompt: {prompt}")
     API_KEY = "AIzaSyAbCwlgnvy5_qcbORvB5sQbOawpEukk6Co"
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key={API_KEY}"
 
     payload = {
         "contents": [
             {
-                "role": "model",
+                "role": "system",
                 "parts": [
                     {
                         "text": """You are a precise image-editing assistant. 
+        Edit the image by keeping the principal personnage of the image,
+        Keep the feature of the personnage of the image,
         Output only base64 PNG data, no text, no explanations.
         Take the entry of the base64 image I will give you, do not modify the core of the image,
         do not modify anything unless explicitly stated in the user_prompt I will give you."""

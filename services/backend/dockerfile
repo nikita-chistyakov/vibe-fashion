@@ -1,0 +1,19 @@
+FROM python:3.11-slim
+
+# Set working directory
+WORKDIR /app
+
+# Copy backend service code
+COPY backend /app
+
+# Install uv (preferred over pip)
+RUN pip install uv
+
+# Expose port (FastAPI default)
+EXPOSE 8000
+
+# Set environment variables if any (placeholder, can be adjusted)
+ENV PYTHONUNBUFFERED=1
+
+# Start the FastAPI application using uv
+CMD ["sh", "-c", "uv sync && uv run python main.py"]
