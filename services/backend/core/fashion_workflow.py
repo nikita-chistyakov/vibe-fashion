@@ -106,12 +106,13 @@ def generate_image(base64_image: str, prompt: str) -> str:
     """
     print(f"Generating image for prompt: {prompt}")
     API_KEY = "AIzaSyAbCwlgnvy5_qcbORvB5sQbOawpEukk6Co"
+    print(f"API_KEY: {API_KEY}")
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key={API_KEY}"
 
     payload = {
         "contents": [
             {
-                "role": "system",
+                "role": "model",
                 "parts": [
                     {
                         "text": """You are a precise image-editing assistant. 
