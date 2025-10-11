@@ -31,6 +31,7 @@ export const Pannel = () => {
             content: response.error_message ?? 'No response from server',
           },
         ]);
+        setIsLoading(false);
         return;
       }
       addMessages([
