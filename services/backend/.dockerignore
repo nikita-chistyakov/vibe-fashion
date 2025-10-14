@@ -4,6 +4,9 @@ __pycache__/
 *$py.class
 *.so
 .Python
+env/
+venv/
+ENV/
 build/
 develop-eggs/
 dist/
@@ -26,25 +29,34 @@ wheels/
 htmlcov/
 .tox/
 
-# IDEs
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb
+testing_nb/
+
+# Environment
+.env
+.env.*
+
+# IDE
 .vscode/
 .idea/
 *.swp
 *.swo
-
-# OS
-.DS_Store
-Thumbs.db
+*~
 
 # Git
 .git/
 .gitignore
 
-# Environment files
-.env
-.env.local
-.env.production
+# Misc
+.DS_Store
+*.log
 
-# Notebooks and test images
-testing_nb/
-*.ipynb
+# Documentation
+README.md
+
+# Saved images and test files
+core/testing_nb/
+saved_images/
+test_*.jpg

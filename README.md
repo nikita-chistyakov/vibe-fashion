@@ -100,9 +100,41 @@ vibe-fashion/
 3. **Access the Application**
    Open [http://localhost:3000](http://localhost:3000) in your browser
 
-## 🐳 Docker Deployment
+## ☁️ Deploy to Google Cloud Run
 
-Build and run all services using Docker:
+Deploy your application to Google Cloud Run with automatic scaling and zero maintenance:
+
+### 🌐 Option 1: Deploy from GitHub (Recommended)
+No command line needed! Deploy directly from your GitHub repository through the Google Cloud Console.
+
+```bash
+👉 See: DEPLOY_FROM_GITHUB.md
+```
+
+### 🤖 Option 2: Quick Deploy Script
+One command deployment using our automated script:
+
+```bash
+export GOOGLE_CLOUD_PROJECT="your-project-id"
+./deploy.sh
+```
+
+```bash
+👉 See: QUICKSTART.md
+```
+
+### 📚 Not sure which method to use?
+Check out our [**Deployment Options Guide**](./DEPLOYMENT_OPTIONS.md) to choose the best method for you!
+
+**Deployment Guides:**
+- 🌐 [**Deploy from GitHub Browser**](./DEPLOY_FROM_GITHUB.md) - GUI-based, continuous deployment
+- 🚀 [**Quick Start CLI**](./QUICKSTART.md) - Fast automated deployment
+- 📖 [**Complete Deployment Guide**](./DEPLOYMENT.md) - Advanced configuration & manual steps
+- 🎯 [**Deployment Options Comparison**](./DEPLOYMENT_OPTIONS.md) - Choose your method
+
+## 🐳 Local Docker Development
+
+Build and run all services locally using Docker:
 
 ```bash
 # Build and run the Ollama service
