@@ -21,6 +21,8 @@ import logging
 import concurrent.futures
 from pathlib import Path
 from typing import Dict, Any
+from PIL import Image, ImageDraw, ImageFont
+import io
 
 from dotenv import load_dotenv
 
@@ -150,8 +152,33 @@ def generate_image(base64_image: str, prompt: str) -> str:
         response = requests.post(
             url, headers={"Content-Type": "application/json"}, data=json.dumps(payload)
         )
+        
+        if response.status_code != 200:
+            print(f"API request failed with status {response.status_code}: {response.text}")
+            return None
+            
         response_data = response.json()
-        parts = response_data["candidates"][0]["content"]["parts"]
+        
+        # Check if the response has the expected structure
+        if "candidates" not in response_data:
+            print(f"Unexpected API response structure: {response_data}")
+            return None
+            
+        if not response_data["candidates"]:
+            print("No candidates in API response")
+            return None
+            
+        candidate = response_data["candidates"][0]
+        
+        if "content" not in candidate:
+            print(f"No content in candidate: {candidate}")
+            return None
+            
+        if "parts" not in candidate["content"]:
+            print(f"No parts in content: {candidate['content']}")
+            return None
+            
+        parts = candidate["content"]["parts"]
 
         for part in parts:
             if "inlineData" in part:
@@ -161,9 +188,62 @@ def generate_image(base64_image: str, prompt: str) -> str:
                     return b64_output
                 except binascii.Error:
                     print("Invalid base64 data detected.")
+                    return None
+
+        print("No inline data found in response parts")
+        return None
 
     except Exception as e:
-        print(f"Unexpected error: {e}")
+        print(f"Unexpected error in image generation: {e}")
+        return None
+
+
+def create_placeholder_images(prompts):
+    """Create placeholder images when the API fails"""
+    placeholder_images = []
+    
+    for i, prompt in enumerate(prompts, 1):
+        try:
+            # Create a simple placeholder image
+            img = Image.new('RGB', (400, 600), color='lightgray')
+            draw = ImageDraw.Draw(img)
+            
+            # Try to use a default font, fallback to basic if not available
+            try:
+                font = ImageFont.truetype("/System/Library/Fonts/Arial.ttf", 20)
+            except:
+                font = ImageFont.load_default()
+            
+            # Add text to the image
+            text = f"Outfit {i}\n\n{prompt[:100]}..."
+            draw.text((20, 20), text, fill='black', font=font)
+            
+            # Convert to base64
+            buffered = io.BytesIO()
+            img.save(buffered, format="PNG")
+            img_base64 = base64.b64encode(buffered.getvalue()).decode()
+            
+            placeholder_images.append({
+                "prompt": prompt,
+                "image_base64": img_base64,
+                "description": f"Placeholder outfit {i}"
+            })
+            
+        except Exception as e:
+            print(f"Failed to create placeholder image {i}: {e}")
+            # Create a simple colored rectangle as fallback
+            img = Image.new('RGB', (400, 600), color=('red', 'blue', 'green', 'purple')[i-1])
+            buffered = io.BytesIO()
+            img.save(buffered, format="PNG")
+            img_base64 = base64.b64encode(buffered.getvalue()).decode()
+            
+            placeholder_images.append({
+                "prompt": prompt,
+                "image_base64": img_base64,
+                "description": f"Placeholder outfit {i}"
+            })
+    
+    return placeholder_images
 
 
 class FashionWorkflow:
@@ -349,6 +429,12 @@ class FashionWorkflow:
                             print(f"  Image {i} failed with error: {e}")
 
                 print(f"Complete! Generated {len(generated_images)} images")
+                
+                # If no images were generated, create placeholder images
+                if not generated_images:
+                    print("No images generated, creating placeholder images...")
+                    placeholder_images = create_placeholder_images(outfit_prompts[:4])
+                    generated_images = placeholder_images
                 # Step 3c: Return results
                 # another call to generate combinatining the prompts descriptions , a readable description of the image
 
