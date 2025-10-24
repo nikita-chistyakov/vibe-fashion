@@ -6,6 +6,7 @@ import base64
 
 from models import FashionResponse
 from core.fashion_workflow import fashion_workflow
+from core.fashion_workflow_fallback import fashion_workflow_fallback
 
 
 # Request model for fashion workflow
@@ -57,10 +58,16 @@ async def fashion_workflow_endpoint(request: FashionWorkflowRequest):
                 detail="Invalid base64 image format. Please provide a valid base64 encoded image.",
             )
 
-        # Run the fashion workflow
-        result = await fashion_workflow.process_request(
-            request.base64_image, request.user_input
-        )
+        # Try to run the main fashion workflow, fallback if it fails
+        try:
+            result = await fashion_workflow.process_request(
+                request.base64_image, request.user_input
+            )
+        except Exception as e:
+            print(f"Main workflow failed, using fallback: {e}")
+            result = await fashion_workflow_fallback.process_request(
+                request.base64_image, request.user_input
+            )
 
         # Convert generated images to the expected format
         images = []
