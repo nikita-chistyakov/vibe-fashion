@@ -2,6 +2,7 @@ import streamlit as st
 import requests
 import base64
 import io
+import os
 from PIL import Image
 import json
 
@@ -71,8 +72,8 @@ with st.sidebar:
     # Backend URL configuration
     backend_url = st.text_input(
         "Backend URL",
-        value="http://localhost:8000",
-        help="URL of your FastAPI backend server"
+        value=os.getenv("BACKEND_URL", "http://localhost:8000"),
+        help="URL of your FastAPI backend server (e.g., https://your-app.railway.app)"
     )
     
     # API endpoint

@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: vibe-fashion-backend
+    env: python
+    plan: free
+    buildCommand: "cd services/backend && uv sync"
+    startCommand: "cd services/backend && uv run python main.py"
+    envVars:
+      - key: API_HOST
+        value: 0.0.0.0
+      - key: API_PORT
+        value: 8000
+      - key: DEBUG
+        value: False
+      - key: GOOGLE_API
+        sync: false  # Set this in Render dashboard
+      - key: OLLAMA_API_BASE
+        value: https://ollama-153939933605.europe-west1.run.app
+      - key: GEMMA_MODEL_NAME
+        value: gemma3:12b
