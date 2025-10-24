@@ -49,7 +49,9 @@ def call_ollama(
     """
 
     try:
-        url = "https://ollama-gemma3-4b-153939933605.europe-west1.run.app/api/chat"
+        # Use the correct Ollama API base from settings
+        from settings import OLLAMA_API_BASE
+        url = f"{OLLAMA_API_BASE}/api/chat"
 
         messages = []
 
@@ -213,6 +215,11 @@ class FashionWorkflow:
             intent_classification = str(intent_response).strip().upper()
             print(f"Intent: {intent_classification}")
 
+            # Handle API failures gracefully
+            if "Error:" in intent_classification or "error" in intent_classification.lower():
+                print("Ollama API failed, defaulting to FASHION_REQUEST")
+                intent_classification = "FASHION_REQUEST"
+
             if intent_classification == "OUT_OF_TOPIC":
                 print("Out of topic - returning redirect message")
                 out_of_topic_response = call_ollama(
@@ -299,6 +306,16 @@ class FashionWorkflow:
                         for line in generation_response.split("\n")
                         if line.strip()
                     ][:4]
+                
+                # If API failed, use default prompts
+                if not outfit_prompts or "Error:" in str(generation_response):
+                    print("Ollama API failed for generation, using default prompts")
+                    outfit_prompts = [
+                        f"Replace current clothing with a casual outfit based on: {user_input}. keep body, face, hair, skin tone, pose, lighting, and background unchanged.",
+                        f"Replace current clothing with a professional outfit based on: {user_input}. keep body, face, hair, skin tone, pose, lighting, and background unchanged.",
+                        f"Replace current clothing with a stylish outfit based on: {user_input}. keep body, face, hair, skin tone, pose, lighting, and background unchanged.",
+                        f"Replace current clothing with a trendy outfit based on: {user_input}. keep body, face, hair, skin tone, pose, lighting, and background unchanged."
+                    ]
 
                 # Step 3b: Generate images using Gemini image model concurrently
                 print("Generating images...")
@@ -363,6 +380,11 @@ class FashionWorkflow:
                 except Exception as e:
                     print(f"Failed to generate combined description: {e}")
                     summary_output = "No readable description available."
+                
+                # If API failed, use a simple fallback description
+                if "Error:" in str(summary_output) or not summary_output.strip():
+                    print("Ollama API failed for summary, using fallback description")
+                    summary_output = f"Here are some outfit suggestions based on your request: '{user_input}'. I've generated 4 different outfit variations for you to choose from. Each outfit maintains your personal style while incorporating the elements you requested."
 
                 # Return the summary as 'suggestions'
                 return {
